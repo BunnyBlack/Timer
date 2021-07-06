@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Core.Timer
@@ -12,6 +13,7 @@ namespace Core.Timer
         public static TimerSystem Timer;
 
         private readonly List<TimerTask> _timerTaskList = new List<TimerTask>();
+        private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
         
         public void InitTimer()
         {
@@ -21,6 +23,9 @@ namespace Core.Timer
 
         private void Update()
         {
+            _timerTaskList.AddRange(_tempTaskList);
+            _tempTaskList.Clear();
+            
             for (var i = 0; i < _timerTaskList.Count; i++)
             {
                 var task = _timerTaskList[i];
@@ -44,7 +49,7 @@ namespace Core.Timer
         public void SetInterval(Action callback, float delay)
         {
             var task = new TimerTask { Callback = callback, DestTime = Time.realtimeSinceStartup + delay };
-            _timerTaskList.Add(task);
+            _tempTaskList.Add(task);
         }
     }
 }
