@@ -29,7 +29,7 @@ namespace Core.Timer
             for (var i = 0; i < _timerTaskList.Count; i++)
             {
                 var task = _timerTaskList[i];
-                if (Time.realtimeSinceStartup < task.DestTime)
+                if (Time.realtimeSinceStartup* 1000 < task.DestTime)
                 {
                     continue;
                 }
@@ -46,10 +46,38 @@ namespace Core.Timer
         /// </summary>
         /// <param name="callback">回调函数</param>
         /// <param name="delay">延迟时间</param>
-        public void SetInterval(Action callback, float delay)
+        /// <param name="unit">延迟时间<paramref name="delay"/>的单位，默认为毫秒</param>
+        public void SetInterval(Action callback, float delay, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
         {
-            var task = new TimerTask { Callback = callback, DestTime = Time.realtimeSinceStartup + delay };
+            delay = ConvertToMilliseconds(delay, unit);
+            var task = new TimerTask { Callback = callback, DestTime = Time.realtimeSinceStartup * 1000 + delay };
             _tempTaskList.Add(task);
         }
+
+        private float ConvertToMilliseconds(float delay, TimerUnitEnum unit)
+        {
+            switch (unit)
+            {
+                case TimerUnitEnum.Millisecond:
+                    break;
+                case TimerUnitEnum.Second:
+                    delay *= 1000;
+                    break;
+                case TimerUnitEnum.Minute:
+                    delay = delay * 1000 * 60;
+                    break;
+                case TimerUnitEnum.Hour:
+                    delay = delay * 1000 * 60 * 60;
+                    break;
+                case TimerUnitEnum.Day:
+                    delay = delay * 1000 * 60 * 60 * 24;
+                    break;
+                default:
+                    Debug.Log("错误的时间类型，无法转换");
+                    break;
+            }
+            return delay;
+        }
+
     }
 }

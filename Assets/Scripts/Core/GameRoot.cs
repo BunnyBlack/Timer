@@ -1,4 +1,5 @@
 ﻿using Core.Timer;
+using UnityEditor;
 using UnityEngine;
 
 namespace Core
@@ -14,7 +15,7 @@ namespace Core
 
         public void ClickAddBtn()
         {
-            TimerSystem.Timer.SetInterval(TimerCallback, 1f);
+            TimerSystem.Timer.SetInterval(TimerCallback, 1000f);
         }
 
         private void TimerCallback()
