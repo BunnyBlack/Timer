@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace Core
+namespace Core.Timer
 {
     public class TimerSystem : MonoBehaviour
     {
