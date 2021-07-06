@@ -14,7 +14,7 @@ namespace Core.Timer
 
         private readonly List<TimerTask> _timerTaskList = new List<TimerTask>();
         private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
-        
+
         public void InitTimer()
         {
             Timer = this;
@@ -25,19 +25,30 @@ namespace Core.Timer
         {
             _timerTaskList.AddRange(_tempTaskList);
             _tempTaskList.Clear();
-            
+
             for (var i = 0; i < _timerTaskList.Count; i++)
             {
                 var task = _timerTaskList[i];
-                if (Time.realtimeSinceStartup* 1000 < task.DestTime)
+                if (Time.realtimeSinceStartup * 1000 < task.DestTime)
                 {
                     continue;
                 }
                 var callback = task.Callback;
                 callback?.Invoke();
-                
-                _timerTaskList.RemoveAt(i);
-                i--;
+                if (task.CallTimes == 1)
+                {
+                    _timerTaskList.RemoveAt(i);
+                    i--;
+                }
+                else
+                {
+                    if (task.CallTimes != 0)
+                    {
+                        task.CallTimes--;
+                    }
+                    task.DestTime += task.Delay;
+                }
+
             }
         }
 
@@ -46,11 +57,18 @@ namespace Core.Timer
         /// </summary>
         /// <param name="callback">回调函数</param>
         /// <param name="delay">延迟时间</param>
-        /// <param name="unit">延迟时间<paramref name="delay"/>的单位，默认为毫秒</param>
-        public void SetInterval(Action callback, float delay, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
+        /// <param name="callTimes">调用次数，传入0时无限执行</param>
+        /// <param name="unit">延迟时间<paramref name="delay"/>的单位</param>
+        public void SetInterval(Action callback, float delay,int callTimes = 1, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
         {
             delay = ConvertToMilliseconds(delay, unit);
-            var task = new TimerTask { Callback = callback, DestTime = Time.realtimeSinceStartup * 1000 + delay };
+            var task = new TimerTask
+            {
+                Callback = callback,
+                DestTime = Time.realtimeSinceStartup * 1000 + delay,
+                Delay = delay,
+                CallTimes = callTimes
+            };
             _tempTaskList.Add(task);
         }
 
