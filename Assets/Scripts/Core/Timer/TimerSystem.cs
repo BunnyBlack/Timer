@@ -33,8 +33,23 @@ namespace Core.Timer
 
         private void Update()
         {
-            _timerTaskList.AddRange(_tempTaskList);
-            _tempTaskList.Clear();
+            if (_tempTaskList.Count != 0)
+            {
+                CollectNewTimerTasks();
+            }
+            CheckTimerTasks();
+
+            if (_recycleTidList.Count != 0)
+            {
+                RecycleTidList();
+            }
+        }
+
+        /// <summary>
+        /// 检查计时器任务是否达到目标时间
+        /// </summary>
+        private void CheckTimerTasks()
+        {
 
             for (var i = 0; i < _timerTaskList.Count; i++)
             {
@@ -59,13 +74,16 @@ namespace Core.Timer
                     }
                     task.DestTime += task.Delay;
                 }
-
             }
+        }
 
-            if (_recycleTidList.Count != 0)
-            {
-                RecycleTidList();
-            }
+        /// <summary>
+        /// 将新增的计时器任务从缓存中正式转移到任务列表
+        /// </summary>
+        private void CollectNewTimerTasks()
+        {
+            _timerTaskList.AddRange(_tempTaskList);
+            _tempTaskList.Clear();
         }
 
         /// <summary>
