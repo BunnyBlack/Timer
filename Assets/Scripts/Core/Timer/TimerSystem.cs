@@ -13,10 +13,13 @@ namespace Core.Timer
         public static TimerSystem Timer;
 
         private readonly List<TimerTask> _timerTaskList = new List<TimerTask>();
-        private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
         private readonly List<int> _tidList = new List<int>();
 
+        // 计时器缓存列表
+        private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
+
         private int _increaseKey = 0;
+
         // 加锁
         private static readonly object TimerLocker = new object();
 
@@ -65,7 +68,7 @@ namespace Core.Timer
         /// <param name="callTimes">调用次数，传入0时无限执行</param>
         /// <param name="unit">延迟时间<paramref name="delay"/>的单位</param>
         /// <returns>计时器tid</returns>
-        public int SetInterval(Action callback, float delay,int callTimes = 1, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
+        public int SetInterval(Action callback, float delay, int callTimes = 1, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
         {
             var tid = GetTid();
             delay = ConvertToMilliseconds(delay, unit);
@@ -78,8 +81,50 @@ namespace Core.Timer
                 Delay = delay
             };
             _tempTaskList.Add(task);
-            
+
             return tid;
+        }
+
+        /// <summary>
+        /// 取消tid所指向的定时器任务
+        /// </summary>
+        /// <param name="tid">计时器tid</param>
+        /// <returns>移除结果</returns>
+        public bool ClearInterval(int tid)
+        {
+            lock (TimerLocker)
+            {
+                if (!_tidList.Contains(tid))
+                {
+                    return false;
+                }
+
+                // 在计时器列表中寻找
+                for (var i = 0; i < _timerTaskList.Count; i++)
+                {
+                    var task = _timerTaskList[i];
+                    if (task.Tid != tid)
+                        continue;
+
+                    _timerTaskList.RemoveAt(i);
+                    _tidList.Remove(tid);
+                    return true;
+                }
+
+                // 在计时器缓存列表中寻找
+                for (var i = 0; i < _tempTaskList.Count; i++)
+                {
+                    var task = _tempTaskList[i];
+                    if (task.Tid != tid)
+                        continue;
+
+                    _tempTaskList.RemoveAt(i);
+                    _tidList.Remove(tid);
+                    return true;
+                }
+
+                return false;
+            }
         }
 
         private int GetTid()
@@ -95,7 +140,7 @@ namespace Core.Timer
                 {
                     _increaseKey++;
                 }
-                
+
                 _tidList.Add(_increaseKey);
                 return _increaseKey;
             }
