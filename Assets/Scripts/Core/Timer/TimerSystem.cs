@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
+using Object = System.Object;
 
 namespace Core.Timer
 {
@@ -14,6 +14,11 @@ namespace Core.Timer
 
         private readonly List<TimerTask> _timerTaskList = new List<TimerTask>();
         private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
+        private readonly List<int> _tidList = new List<int>();
+
+        private int _increaseKey = 0;
+        // 加锁
+        private static readonly object TimerLocker = new object();
 
         public void InitTimer()
         {
@@ -59,20 +64,44 @@ namespace Core.Timer
         /// <param name="delay">延迟时间</param>
         /// <param name="callTimes">调用次数，传入0时无限执行</param>
         /// <param name="unit">延迟时间<paramref name="delay"/>的单位</param>
-        public void SetInterval(Action callback, float delay,int callTimes = 1, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
+        /// <returns>计时器tid</returns>
+        public int SetInterval(Action callback, float delay,int callTimes = 1, TimerUnitEnum unit = TimerUnitEnum.Millisecond)
         {
+            var tid = GetTid();
             delay = ConvertToMilliseconds(delay, unit);
             var task = new TimerTask
             {
-                Callback = callback,
+                Tid = tid,
                 DestTime = Time.realtimeSinceStartup * 1000 + delay,
-                Delay = delay,
-                CallTimes = callTimes
+                Callback = callback,
+                CallTimes = callTimes,
+                Delay = delay
             };
             _tempTaskList.Add(task);
+            
+            return tid;
         }
 
-        private float ConvertToMilliseconds(float delay, TimerUnitEnum unit)
+        private int GetTid()
+        {
+            lock (TimerLocker)
+            {
+                _increaseKey++;
+                if (_increaseKey == int.MaxValue)
+                {
+                    _increaseKey = 1;
+                }
+                while (_tidList.Contains(_increaseKey))
+                {
+                    _increaseKey++;
+                }
+                
+                _tidList.Add(_increaseKey);
+                return _increaseKey;
+            }
+        }
+
+        private static float ConvertToMilliseconds(float delay, TimerUnitEnum unit)
         {
             switch (unit)
             {
