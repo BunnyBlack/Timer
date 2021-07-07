@@ -17,6 +17,8 @@ namespace Core.Timer
 
         // 计时器缓存列表
         private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
+        // 计时器tid清除列表
+        private readonly List<int> _recycleTidList = new List<int>();
 
         private int _increaseKey = 0;
 
@@ -46,6 +48,7 @@ namespace Core.Timer
                 if (task.CallTimes == 1)
                 {
                     _timerTaskList.RemoveAt(i);
+                    _recycleTidList.Add(task.Tid);
                     i--;
                 }
                 else
@@ -57,6 +60,11 @@ namespace Core.Timer
                     task.DestTime += task.Delay;
                 }
 
+            }
+
+            if (_recycleTidList.Count != 0)
+            {
+                RecycleTidList();
             }
         }
 
@@ -125,6 +133,16 @@ namespace Core.Timer
 
                 return false;
             }
+        }
+        
+        private void RecycleTidList()
+        {
+            foreach (var tid in _recycleTidList)
+            {
+                _tidList.Remove(tid);
+            }
+            
+            _recycleTidList.Clear();
         }
 
         private int GetTid()
