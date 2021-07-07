@@ -18,7 +18,7 @@ namespace Core
         public void ClickAddBtn()
         {
             TimerSystem.Timer.ClearInterval(_tid);
-            _tid = TimerSystem.Timer.SetInterval(TimerCallback, 1000f);
+            _tid = TimerSystem.Timer.SetInterval(TimerCallback, 1000, 0);
             Debug.Log($"Start Interval! tid:{_tid.ToString()}");
         }
 
