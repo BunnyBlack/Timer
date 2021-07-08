@@ -6,9 +6,12 @@ namespace Core.Timer
     public class CallTimer
     {
         private readonly List<TimerTask> _timerTaskList = new List<TimerTask>();
+
         private readonly List<int> _tidList = new List<int>();
+
         // 计时器缓存列表
         private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
+
         // 计时器tid清除列表
         private readonly List<int> _recycleTidList = new List<int>();
         private readonly DateTime _unixEpoch = new DateTime(1970, 1, 1, 0, 0, 0);
@@ -19,14 +22,14 @@ namespace Core.Timer
         // 加锁
         private int _increaseKey;
         private double _nowTimeStamp;
-        
+
         public CallTimer(Action<string> logHandler)
         {
             _timerTaskList.Clear();
             _tidList.Clear();
             _tempTaskList.Clear();
             _recycleTidList.Clear();
-            
+
             _logHandler = logHandler;
         }
 
@@ -129,14 +132,17 @@ namespace Core.Timer
         {
             return GetLocalDateTime().Year;
         }
+
         public int GetLocalMonth()
         {
             return GetLocalDateTime().Month;
         }
+
         public int GetLocalDay()
         {
             return GetLocalDateTime().Day;
         }
+
         public int GetLocalDayOfWeek()
         {
             return (int)GetLocalDateTime().DayOfWeek;
@@ -153,7 +159,7 @@ namespace Core.Timer
 
         #region Private functions
 
-         private void LogInfo(string info)
+        private void LogInfo(string info)
         {
             _logHandler?.Invoke($"CallTimer Log: {info}");
         }
@@ -196,10 +202,13 @@ namespace Core.Timer
         /// </summary>
         private void CollectNewTimerTasks()
         {
-            _timerTaskList.AddRange(_tempTaskList);
-            _tempTaskList.Clear();
+            lock (TimerLocker)
+            {
+                _timerTaskList.AddRange(_tempTaskList);
+                _tempTaskList.Clear();
+            }
         }
-        
+
         private void RecycleTidList()
         {
             foreach (var tid in _recycleTidList)
@@ -264,7 +273,8 @@ namespace Core.Timer
         {
             return time < 10 ? $"0{time.ToString()}" : time.ToString();
         }
-        
+
         #endregion
+
     }
 }
