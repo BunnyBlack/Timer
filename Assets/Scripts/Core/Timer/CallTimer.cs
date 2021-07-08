@@ -114,6 +114,41 @@ namespace Core.Timer
             }
         }
 
+        public double GetTimeStamp()
+        {
+            return _nowTimeStamp;
+        }
+
+        public DateTime GetLocalDateTime()
+        {
+            var dt = TimeZoneInfo.ConvertTimeFromUtc(_unixEpoch.AddMilliseconds(_nowTimeStamp), TimeZoneInfo.Local);
+            return dt;
+        }
+
+        public int GetLocalYear()
+        {
+            return GetLocalDateTime().Year;
+        }
+        public int GetLocalMonth()
+        {
+            return GetLocalDateTime().Month;
+        }
+        public int GetLocalDay()
+        {
+            return GetLocalDateTime().Day;
+        }
+        public int GetLocalDayOfWeek()
+        {
+            return (int)GetLocalDateTime().DayOfWeek;
+        }
+
+        public string GetLocalTimeStr()
+        {
+            var dt = GetLocalDateTime();
+            var timeStr = $"{ConvertTimeStr(dt.Hour)}:{ConvertTimeStr(dt.Minute)}:{ConvertTimeStr(dt.Second)}";
+            return timeStr;
+        }
+
         #endregion
 
         #region Private functions
@@ -223,6 +258,11 @@ namespace Core.Timer
         {
             var timeSpan = DateTime.UtcNow - _unixEpoch;
             return timeSpan.TotalMilliseconds;
+        }
+
+        private string ConvertTimeStr(int time)
+        {
+            return time < 10 ? $"0{time.ToString()}" : time.ToString();
         }
         
         #endregion
