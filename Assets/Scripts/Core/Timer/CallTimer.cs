@@ -42,9 +42,7 @@ namespace Core.Timer
 
         public void Update()
         {
-            CollectNewTimerTasks();
             CheckTimerTasks();
-
             
             RecycleTimerTasks();
             RecycleTidList();
@@ -118,9 +116,9 @@ namespace Core.Timer
                         isDel = true;
                         break;
                     }
-                    if(isDel)
+                    if (isDel)
                         continue;
-                
+
                     // 在计时器缓存列表中寻找
                     for (var j = 0; j < _tempTaskList.Count; j++)
                     {
@@ -132,7 +130,7 @@ namespace Core.Timer
                         _recycleTidList.Add(tid);
                     }
                 }
-                
+
                 _tempDelTaskTidList.Clear();
             }
         }
@@ -189,6 +187,9 @@ namespace Core.Timer
         /// </summary>
         private void CheckTimerTasks()
         {
+            CollectNewTimerTasks();
+
+
             _nowTimeStamp = GetUTCMilliseconds();
             for (var i = 0; i < _timerTaskList.Count; i++)
             {
