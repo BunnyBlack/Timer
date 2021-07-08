@@ -1,32 +1,40 @@
 ﻿using System;
 using System.Collections.Generic;
+using TMPro;
 
 namespace Core.Timer
 {
     public class CallTimer
     {
         private readonly List<TimerTask> _timerTaskList = new List<TimerTask>();
+
         private readonly List<int> _tidList = new List<int>();
+
         // 计时器缓存列表
         private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
+
+        // 计时器删除缓存列表
+        private readonly List<int> _tempDelTaskTidList = new List<int>();
+
         // 计时器tid清除列表
         private readonly List<int> _recycleTidList = new List<int>();
         private readonly DateTime _unixEpoch = new DateTime(1970, 1, 1, 0, 0, 0);
         private readonly Action<string> _logHandler;
         private static readonly object TimerLocker = new object();
+        private static readonly object TidLocker = new object();
 
 
         // 加锁
         private int _increaseKey;
         private double _nowTimeStamp;
-        
+
         public CallTimer(Action<string> logHandler)
         {
             _timerTaskList.Clear();
             _tidList.Clear();
             _tempTaskList.Clear();
             _recycleTidList.Clear();
-            
+
             _logHandler = logHandler;
         }
 
@@ -34,17 +42,12 @@ namespace Core.Timer
 
         public void Update()
         {
-            if (_tempTaskList.Count != 0)
-            {
-                CollectNewTimerTasks();
-            }
             CheckTimerTasks();
-
-            if (_recycleTidList.Count != 0)
-            {
-                RecycleTidList();
-            }
+            
+            RecycleTimerTasks();
+            RecycleTidList();
         }
+
 
         /// <summary>
         /// 增加定时器回调，在不指定回调次数时，默认执行一次，传入 0 则无限次执行
@@ -67,7 +70,10 @@ namespace Core.Timer
                 CallTimes = callTimes,
                 Delay = delay
             };
-            _tempTaskList.Add(task);
+            lock (TimerLocker)
+            {
+                _tempTaskList.Add(task);
+            }
 
             return tid;
         }
@@ -77,48 +83,101 @@ namespace Core.Timer
         /// </summary>
         /// <param name="tid">计时器tid</param>
         /// <returns>移除结果</returns>
-        public bool ClearInterval(int tid)
+        public void ClearInterval(int tid)
         {
+            if (!_tidList.Contains(tid))
+                return;
+
             lock (TimerLocker)
             {
-                if (!_tidList.Contains(tid))
-                {
-                    return false;
-                }
-
-                // 在计时器列表中寻找
-                for (var i = 0; i < _timerTaskList.Count; i++)
-                {
-                    var task = _timerTaskList[i];
-                    if (task.Tid != tid)
-                        continue;
-
-                    _timerTaskList.RemoveAt(i);
-                    _tidList.Remove(tid);
-                    return true;
-                }
-
-                // 在计时器缓存列表中寻找
-                for (var i = 0; i < _tempTaskList.Count; i++)
-                {
-                    var task = _tempTaskList[i];
-                    if (task.Tid != tid)
-                        continue;
-
-                    _tempTaskList.RemoveAt(i);
-                    _tidList.Remove(tid);
-                    return true;
-                }
-
-                return false;
+                _tempDelTaskTidList.Add(tid);
             }
+        }
+
+        private void RecycleTimerTasks()
+        {
+            if (_tempDelTaskTidList.Count == 0)
+                return;
+
+            lock (TimerLocker)
+            {
+                foreach (var tid in _tempDelTaskTidList)
+                {
+                    var isDel = false;
+                    // 在计时器列表中寻找
+                    for (var j = 0; j < _timerTaskList.Count; j++)
+                    {
+                        var task = _timerTaskList[j];
+                        if (task.Tid != tid)
+                            continue;
+
+                        _timerTaskList.RemoveAt(j);
+                        _recycleTidList.Add(tid);
+                        isDel = true;
+                        break;
+                    }
+                    if (isDel)
+                        continue;
+
+                    // 在计时器缓存列表中寻找
+                    for (var j = 0; j < _tempTaskList.Count; j++)
+                    {
+                        var task = _tempTaskList[j];
+                        if (task.Tid != tid)
+                            continue;
+
+                        _tempTaskList.RemoveAt(j);
+                        _recycleTidList.Add(tid);
+                    }
+                }
+
+                _tempDelTaskTidList.Clear();
+            }
+        }
+
+        public double GetTimeStamp()
+        {
+            return _nowTimeStamp;
+        }
+
+        public DateTime GetLocalDateTime()
+        {
+            var dt = TimeZoneInfo.ConvertTimeFromUtc(_unixEpoch.AddMilliseconds(_nowTimeStamp), TimeZoneInfo.Local);
+            return dt;
+        }
+
+        public int GetLocalYear()
+        {
+            return GetLocalDateTime().Year;
+        }
+
+        public int GetLocalMonth()
+        {
+            return GetLocalDateTime().Month;
+        }
+
+        public int GetLocalDay()
+        {
+            return GetLocalDateTime().Day;
+        }
+
+        public int GetLocalDayOfWeek()
+        {
+            return (int)GetLocalDateTime().DayOfWeek;
+        }
+
+        public string GetLocalTimeStr()
+        {
+            var dt = GetLocalDateTime();
+            var timeStr = $"{ConvertTimeStr(dt.Hour)}:{ConvertTimeStr(dt.Minute)}:{ConvertTimeStr(dt.Second)}";
+            return timeStr;
         }
 
         #endregion
 
         #region Private functions
 
-         private void LogInfo(string info)
+        private void LogInfo(string info)
         {
             _logHandler?.Invoke($"CallTimer Log: {info}");
         }
@@ -128,6 +187,8 @@ namespace Core.Timer
         /// </summary>
         private void CheckTimerTasks()
         {
+            CollectNewTimerTasks();
+
 
             _nowTimeStamp = GetUTCMilliseconds();
             for (var i = 0; i < _timerTaskList.Count; i++)
@@ -161,23 +222,36 @@ namespace Core.Timer
         /// </summary>
         private void CollectNewTimerTasks()
         {
-            _timerTaskList.AddRange(_tempTaskList);
-            _tempTaskList.Clear();
-        }
-        
-        private void RecycleTidList()
-        {
-            foreach (var tid in _recycleTidList)
+            if (_tempTaskList.Count == 0)
+                return;
+
+            lock (TimerLocker)
             {
-                _tidList.Remove(tid);
+                _timerTaskList.AddRange(_tempTaskList);
+                _tempTaskList.Clear();
             }
 
-            _recycleTidList.Clear();
+        }
+
+        private void RecycleTidList()
+        {
+            if (_recycleTidList.Count == 0)
+                return;
+
+            lock (TidLocker)
+            {
+                foreach (var tid in _recycleTidList)
+                {
+                    _tidList.Remove(tid);
+                }
+
+                _recycleTidList.Clear();
+            }
         }
 
         private int GetTid()
         {
-            lock (TimerLocker)
+            lock (TidLocker)
             {
                 _increaseKey++;
                 if (_increaseKey == int.MaxValue)
@@ -224,7 +298,13 @@ namespace Core.Timer
             var timeSpan = DateTime.UtcNow - _unixEpoch;
             return timeSpan.TotalMilliseconds;
         }
-        
+
+        private string ConvertTimeStr(int time)
+        {
+            return time < 10 ? $"0{time.ToString()}" : time.ToString();
+        }
+
         #endregion
+
     }
 }
