@@ -17,6 +17,7 @@ namespace Core.Timer
         private readonly DateTime _unixEpoch = new DateTime(1970, 1, 1, 0, 0, 0);
         private readonly Action<string> _logHandler;
         private static readonly object TimerLocker = new object();
+        private static readonly object TidLocker = new object();
 
 
         // 加锁
@@ -37,16 +38,10 @@ namespace Core.Timer
 
         public void Update()
         {
-            if (_tempTaskList.Count != 0)
-            {
-                CollectNewTimerTasks();
-            }
+            CollectNewTimerTasks();
             CheckTimerTasks();
-
-            if (_recycleTidList.Count != 0)
-            {
-                RecycleTidList();
-            }
+            
+            RecycleTidList();
         }
 
         /// <summary>
@@ -70,7 +65,10 @@ namespace Core.Timer
                 CallTimes = callTimes,
                 Delay = delay
             };
-            _tempTaskList.Add(task);
+            lock (TimerLocker)
+            {
+                _tempTaskList.Add(task);
+            }
 
             return tid;
         }
@@ -202,26 +200,36 @@ namespace Core.Timer
         /// </summary>
         private void CollectNewTimerTasks()
         {
+            if (_tempTaskList.Count == 0)
+                return;
+
             lock (TimerLocker)
             {
                 _timerTaskList.AddRange(_tempTaskList);
                 _tempTaskList.Clear();
             }
+
         }
 
         private void RecycleTidList()
         {
-            foreach (var tid in _recycleTidList)
-            {
-                _tidList.Remove(tid);
-            }
+            if (_recycleTidList.Count == 0)
+                return;
 
-            _recycleTidList.Clear();
+            lock (TidLocker)
+            {
+                foreach (var tid in _recycleTidList)
+                {
+                    _tidList.Remove(tid);
+                }
+
+                _recycleTidList.Clear();
+            }
         }
 
         private int GetTid()
         {
-            lock (TimerLocker)
+            lock (TidLocker)
             {
                 _increaseKey++;
                 if (_increaseKey == int.MaxValue)
