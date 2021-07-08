@@ -41,9 +41,9 @@ namespace Core.Timer
         /// </summary>
         /// <param name="tid">计时器tid</param>
         /// <returns>移除结果</returns>
-        public bool ClearInterval(int tid)
+        public void ClearInterval(int tid)
         {
-            return _timer.ClearInterval(tid);
+            _timer.ClearInterval(tid);
         }
     }
 }

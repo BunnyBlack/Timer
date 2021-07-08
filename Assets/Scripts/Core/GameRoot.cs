@@ -24,9 +24,7 @@ namespace Core
 
         public void ClickCancelBtn()
         {
-            Debug.Log(TimerSystem.Timer.ClearInterval(_tid)
-                ? $"Remove succeed! tid: {_tid.ToString()}"
-                : $"Remove failed! Please Check tid: {_tid.ToString()}");
+            TimerSystem.Timer.ClearInterval(_tid);
         }
 
         private void TimerCallback()
