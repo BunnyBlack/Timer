@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using TMPro;
 
 namespace Core.Timer
 {
@@ -11,6 +12,9 @@ namespace Core.Timer
 
         // 计时器缓存列表
         private readonly List<TimerTask> _tempTaskList = new List<TimerTask>();
+
+        // 计时器删除缓存列表
+        private readonly List<int> _tempDelTaskTidList = new List<int>();
 
         // 计时器tid清除列表
         private readonly List<int> _recycleTidList = new List<int>();
@@ -40,9 +44,12 @@ namespace Core.Timer
         {
             CollectNewTimerTasks();
             CheckTimerTasks();
+
             
+            RecycleTimerTasks();
             RecycleTidList();
         }
+
 
         /// <summary>
         /// 增加定时器回调，在不指定回调次数时，默认执行一次，传入 0 则无限次执行
@@ -78,40 +85,55 @@ namespace Core.Timer
         /// </summary>
         /// <param name="tid">计时器tid</param>
         /// <returns>移除结果</returns>
-        public bool ClearInterval(int tid)
+        public void ClearInterval(int tid)
         {
+            if (!_tidList.Contains(tid))
+                return;
+
             lock (TimerLocker)
             {
-                if (!_tidList.Contains(tid))
-                {
-                    return false;
-                }
+                _tempDelTaskTidList.Add(tid);
+            }
+        }
 
-                // 在计时器列表中寻找
-                for (var i = 0; i < _timerTaskList.Count; i++)
+        private void RecycleTimerTasks()
+        {
+            if (_tempDelTaskTidList.Count == 0)
+                return;
+
+            lock (TimerLocker)
+            {
+                foreach (var tid in _tempDelTaskTidList)
                 {
-                    var task = _timerTaskList[i];
-                    if (task.Tid != tid)
+                    var isDel = false;
+                    // 在计时器列表中寻找
+                    for (var j = 0; j < _timerTaskList.Count; j++)
+                    {
+                        var task = _timerTaskList[j];
+                        if (task.Tid != tid)
+                            continue;
+
+                        _timerTaskList.RemoveAt(j);
+                        _recycleTidList.Add(tid);
+                        isDel = true;
+                        break;
+                    }
+                    if(isDel)
                         continue;
+                
+                    // 在计时器缓存列表中寻找
+                    for (var j = 0; j < _tempTaskList.Count; j++)
+                    {
+                        var task = _tempTaskList[j];
+                        if (task.Tid != tid)
+                            continue;
 
-                    _timerTaskList.RemoveAt(i);
-                    _tidList.Remove(tid);
-                    return true;
+                        _tempTaskList.RemoveAt(j);
+                        _recycleTidList.Add(tid);
+                    }
                 }
-
-                // 在计时器缓存列表中寻找
-                for (var i = 0; i < _tempTaskList.Count; i++)
-                {
-                    var task = _tempTaskList[i];
-                    if (task.Tid != tid)
-                        continue;
-
-                    _tempTaskList.RemoveAt(i);
-                    _tidList.Remove(tid);
-                    return true;
-                }
-
-                return false;
+                
+                _tempDelTaskTidList.Clear();
             }
         }
 
@@ -167,7 +189,6 @@ namespace Core.Timer
         /// </summary>
         private void CheckTimerTasks()
         {
-
             _nowTimeStamp = GetUTCMilliseconds();
             for (var i = 0; i < _timerTaskList.Count; i++)
             {
